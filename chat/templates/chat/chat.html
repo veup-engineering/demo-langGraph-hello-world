@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Chat</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0;
+           margin: 0; height: 100vh; display: flex; flex-direction: column; }
+    header { padding: .8rem 1.2rem; background: #1e293b; display: flex;
+             align-items: center; justify-content: space-between; border-bottom: 1px solid #334155; }
+    header h1 { margin: 0; font-size: 1rem; font-weight: 600; }
+    header a { color: #94a3b8; font-size: .85rem; text-decoration: none; }
+    header a:hover { color: #e2e8f0; }
+    #log { flex: 1; overflow-y: auto; padding: 1.2rem; max-width: 780px;
+           width: 100%; margin: 0 auto; box-sizing: border-box; }
+    .msg { margin: .6rem 0; padding: .7rem 1rem; border-radius: 10px;
+           white-space: pre-wrap; line-height: 1.45; font-size: .95rem; }
+    .user { background: #334155; align-self: flex-end; max-width: 70%; margin-left: auto; }
+    .bot  { background: #1e293b; border: 1px solid #334155; max-width: 85%; }
+    .bot.thinking { color: #94a3b8; font-style: italic; }
+    .err  { background: #450a0a; border: 1px solid #7f1d1d; color: #fecaca; }
+    form { display: flex; gap: .5rem; padding: 1rem; max-width: 780px;
+           width: 100%; margin: 0 auto; box-sizing: border-box; }
+    input { flex: 1; padding: .7rem .9rem; border-radius: 8px; border: 1px solid #334155;
+            background: #1e293b; color: #e2e8f0; font-size: 1rem; }
+    button { padding: .7rem 1.2rem; border-radius: 8px; border: 0;
+             background: #6366f1; color: white; font-weight: 600; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>RAG Chat &mdash; signed in as {{ user.username }}</h1>
+    <form method="post" action="/logout/" style="padding:0;margin:0;">
+      {% csrf_token %}
+      <button type="submit" style="padding:.3rem .8rem;font-size:.8rem;background:#334155;">Sign out</button>
+    </form>
+  </header>
+
+  <div id="log">
+    <div class="msg bot">Hi {{ user.username }} &mdash; ask me about our knowledge base or product catalog.</div>
+  </div>
+
+  <form id="form">
+    {% csrf_token %}
+    <input id="input" name="message" autocomplete="off" placeholder="Ask a question..." autofocus>
+    <button id="send" type="submit">Send</button>
+  </form>
+
+  <script>
+    const log = document.getElementById('log');
+    const form = document.getElementById('form');
+    const input = document.getElementById('input');
+    const send = document.getElementById('send');
+    const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    function add(cls, text) {
+      const div = document.createElement('div');
+      div.className = 'msg ' + cls;
+      div.textContent = text;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+      return div;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const message = input.value.trim();
+      if (!message) return;
+      add('user', message);
+      input.value = '';
+      send.disabled = true;
+      const thinking = add('bot thinking', 'Thinking...');
+      try {
+        const res = await fetch('/chat/send/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+          body: JSON.stringify({ message }),
+        });
+        const data = await res.json();
+        thinking.remove();
+        if (!res.ok) {
+          add('err', data.error || 'Request failed');
+        } else {
+          add('bot', data.reply);
+        }
+      } catch (err) {
+        thinking.remove();
+        add('err', String(err));
+      } finally {
+        send.disabled = false;
+        input.focus();
+      }
+    });
+  </script>
+</body>
+</html>
