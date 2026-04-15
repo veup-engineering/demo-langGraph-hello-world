@@ -18,7 +18,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-import requests
+import httpx
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
@@ -37,11 +37,12 @@ def _headers() -> dict[str, str]:
     return h
 
 
-def _get(path: str, params: dict | None = None) -> Any:
+async def _get(path: str, params: dict | None = None) -> Any:
     url = f"{API_BASE}{path}"
-    resp = requests.get(url, params=params or {}, headers=_headers(), timeout=15)
-    resp.raise_for_status()
-    return resp.json()
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url, params=params or {}, headers=_headers(), timeout=15)
+        resp.raise_for_status()
+        return resp.json()
 
 
 # FastMCP wires tool definitions, dispatch, and the SSE/HTTP transport.
@@ -49,7 +50,7 @@ mcp = FastMCP("django-knowledge", host=HOST, port=PORT)
 
 
 @mcp.tool()
-def search_knowledge_base(query: str) -> dict:
+async def search_knowledge_base(query: str) -> dict:
     """Search the company knowledge base for articles relevant to a query.
 
     Use this tool when the user asks about policies, account help, support
@@ -62,37 +63,37 @@ def search_knowledge_base(query: str) -> dict:
         A dict with keys ``query``, ``count``, and ``results`` (a list of
         articles each containing ``id``, ``title``, ``category``, ``body``).
     """
-    return _get("/api/articles/search/", {"q": query})
+    return await _get("/api/articles/search/", {"q": query})
 
 
 @mcp.tool()
-def list_articles(category: str | None = None) -> list:
+async def list_articles(category: str | None = None) -> list:
     """List all knowledge-base articles, optionally filtered by category.
 
     Categories include: ``account``, ``billing``, ``shipping``.
     """
     params = {"category": category} if category else None
-    return _get("/api/articles/", params)
+    return await _get("/api/articles/", params)
 
 
 @mcp.tool()
-def search_products(query: str) -> dict:
+async def search_products(query: str) -> dict:
     """Search the product catalog for items matching a query.
 
     Use this when the user asks about specific products, what we sell,
     pricing, or recommendations.
     """
-    return _get("/api/products/search/", {"q": query})
+    return await _get("/api/products/search/", {"q": query})
 
 
 @mcp.tool()
-def list_products(category: str | None = None) -> list:
+async def list_products(category: str | None = None) -> list:
     """List all products, optionally filtered by category.
 
     Categories include: ``hardware``, ``kits``, ``parts``.
     """
     params = {"category": category} if category else None
-    return _get("/api/products/", params)
+    return await _get("/api/products/", params)
 
 
 if __name__ == "__main__":
