@@ -1,0 +1,36 @@
+services:
+  app:
+    build: .
+    command: gunicorn chatproject.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120
+    ports:
+      - "8000:8000"
+    volumes:
+      - sqlite-data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - DATABASE_PATH=/app/data/db.sqlite3
+      - RUN_MIGRATIONS=true
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - MCP_SERVER_URL=http://mcp-server:8001/sse
+    depends_on:
+      - mcp-server
+
+  mcp-server:
+    build: .
+    command: python -m mcp_server.server
+    ports:
+      - "8001:8001"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - DJANGO_API_BASE_URL=http://app:8000
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8001
+
+volumes:
+  sqlite-data:
