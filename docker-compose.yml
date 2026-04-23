@@ -1,7 +1,7 @@
 services:
   app:
-    build: .
-    command: gunicorn chatproject.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120
+    build: ./django_app
+    command: uvicorn chatproject.asgi:application --host 0.0.0.0 --port 8000 --workers 2 --timeout-keep-alive 120
     ports:
       - "8000:8000"
     volumes:
@@ -20,8 +20,7 @@ services:
       - mcp-server
 
   mcp-server:
-    build: .
-    command: python -m mcp_server.server
+    build: ./mcp_server
     ports:
       - "8001:8001"
     env_file:

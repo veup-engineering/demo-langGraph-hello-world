@@ -11,7 +11,6 @@ LLM is a local Ollama instance configured in Django settings.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 
@@ -47,8 +46,12 @@ def _build_llm() -> ChatOllama:
     )
 
 
-async def _run_async(message: str) -> str:
-    """Spin up the MCP client, build the agent, run one turn, return the reply."""
+async def run_agent_async(message: str, user: Any | None = None) -> str:
+    """Run the agent asynchronously — called directly from the async chat view.
+
+    Connects to the MCP server over SSE, builds a ReAct agent, and returns
+    the final reply text.
+    """
     client = MultiServerMCPClient(
         {
             "django-knowledge": {
@@ -81,12 +84,3 @@ async def _run_async(message: str) -> str:
         parts = [p.get("text", "") if isinstance(p, dict) else str(p) for p in content]
         return "".join(parts).strip() or "(no response)"
     return (content or "").strip() or "(no response)"
-
-
-def run_agent(message: str, user: Any | None = None) -> str:
-    """Synchronous wrapper called from Django views.
-
-    Each call gets its own event loop so the function is safe to invoke from a
-    sync Django view without leaking state between requests.
-    """
-    return asyncio.run(_run_async(message))

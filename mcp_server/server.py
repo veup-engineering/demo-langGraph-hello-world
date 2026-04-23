@@ -1,8 +1,9 @@
 """MCP server exposing tools that wrap the Django REST API.
 
-Run this as a separate process from Django:
+Run standalone:
 
-    python -m mcp_server.server
+    python -m server          (from within this directory)
+    python mcp_server/server.py
 
 It listens on http://127.0.0.1:8001/sse by default. The LangGraph agent
 connects to it via langchain-mcp-adapters' SSE transport.

@@ -2,6 +2,11 @@
 
 The chat page is a server-rendered template; the chat_send endpoint accepts
 JSON, runs it through the LangGraph agent, and returns the agent's reply.
+
+chat_send is an async view so the agent can await MCP tool calls without
+blocking a worker thread.  The sync views (chat_page) and all /api/ endpoints
+remain synchronous — Django's ASGI handler runs them in a threadpool
+automatically.
 """
 from __future__ import annotations
 
@@ -13,7 +18,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
-from agent.runner import run_agent
+from agent.runner import run_agent_async
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +30,7 @@ def chat_page(request):
 
 @login_required
 @require_http_methods(["POST"])
-def chat_send(request):
+async def chat_send(request):
     try:
         payload = json.loads(request.body or b"{}")
     except json.JSONDecodeError:
@@ -36,7 +41,7 @@ def chat_send(request):
         return JsonResponse({"error": "message is required"}, status=400)
 
     try:
-        reply = run_agent(message, user=request.user)
+        reply = await run_agent_async(message, user=request.user)
     except Exception as exc:
         logger.exception("agent failed")
         return JsonResponse(
