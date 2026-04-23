@@ -43,7 +43,6 @@
   </div>
 
   <form id="form">
-    {% csrf_token %}
     <input id="input" name="message" autocomplete="off" placeholder="Ask a question..." autofocus>
     <button id="send" type="submit">Send</button>
   </form>
@@ -52,8 +51,7 @@
     const log = document.getElementById('log');
     const form = document.getElementById('form');
     const input = document.getElementById('input');
-    const send = document.getElementById('send');
-    const csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const sendBtn = document.getElementById('send');
 
     function add(cls, text) {
       const div = document.createElement('div');
@@ -64,34 +62,42 @@
       return div;
     }
 
-    form.addEventListener('submit', async (e) => {
+    // Build WebSocket URL from current page location
+    const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(wsProto + '//' + location.host + '/ws/chat/');
+
+    let thinking = null;
+
+    ws.addEventListener('open', () => {
+      sendBtn.disabled = false;
+    });
+
+    ws.addEventListener('message', (event) => {
+      if (thinking) { thinking.remove(); thinking = null; }
+      const data = JSON.parse(event.data);
+      if (data.error) {
+        add('err', data.error);
+      } else {
+        add('bot', data.reply);
+      }
+      sendBtn.disabled = false;
+      input.focus();
+    });
+
+    ws.addEventListener('close', () => {
+      add('err', 'Connection closed. Please refresh the page.');
+      sendBtn.disabled = true;
+    });
+
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
       const message = input.value.trim();
-      if (!message) return;
+      if (!message || ws.readyState !== WebSocket.OPEN) return;
       add('user', message);
       input.value = '';
-      send.disabled = true;
-      const thinking = add('bot thinking', 'Thinking...');
-      try {
-        const res = await fetch('/chat/send/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-          body: JSON.stringify({ message }),
-        });
-        const data = await res.json();
-        thinking.remove();
-        if (!res.ok) {
-          add('err', data.error || 'Request failed');
-        } else {
-          add('bot', data.reply);
-        }
-      } catch (err) {
-        thinking.remove();
-        add('err', String(err));
-      } finally {
-        send.disabled = false;
-        input.focus();
-      }
+      sendBtn.disabled = true;
+      thinking = add('bot thinking', 'Thinking...');
+      ws.send(JSON.stringify({ message }));
     });
   </script>
 </body>

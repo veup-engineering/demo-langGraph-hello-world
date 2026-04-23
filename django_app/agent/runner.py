@@ -47,7 +47,7 @@ def _build_llm() -> ChatOllama:
 
 
 async def run_agent_async(message: str, user: Any | None = None) -> str:
-    """Run the agent asynchronously — called directly from the async chat view.
+    """Run the agent asynchronously — called from the WebSocket consumer.
 
     Connects to the MCP server over SSE, builds a ReAct agent, and returns
     the final reply text.
